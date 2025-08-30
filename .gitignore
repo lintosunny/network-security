@@ -12,3 +12,5 @@ wheels/
 
 
 logs
+Artifacts
+.ipynb_checkpoints
