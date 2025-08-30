@@ -13,11 +13,11 @@ from networksecurity.entity.config_entity import DataValidationConfig
 from networksecurity.constants.training_pipeline import SCHEMA_FILE_PATH
 from networksecurity.utils.main_utils.utils import read_yaml_file, write_yaml_file
 
-
 class DataValidation:
         def __init__(self, data_validation_config: DataValidationConfig,
                      data_ingestion_artifact: DataIngestionArtifact):
             try:
+                logging.info(f"{'>>'*20} Data Validation {'<<'*20}")
                 self.data_validation_config = data_validation_config
                 self.data_ingestion_artifact = data_ingestion_artifact
                 self.schema_config = read_yaml_file(SCHEMA_FILE_PATH)
@@ -77,7 +77,7 @@ class DataValidation:
                     is_statistically_similar = ks_2samp(d1, d2)
                     p_value = is_statistically_similar.pvalue
 
-                    if threshold <= p_value:
+                    if p_value >= threshold:
                         is_found = False
                         logging.info("No drift in column '%s' (p-value=%s)", column, p_value)
                     else:
@@ -147,10 +147,9 @@ class DataValidation:
                 invalid_test_file_path=None,
                 drift_report_file_path=self.data_validation_config.drift_report_file_path,
                 )
-                
+
                 logging.info("Data validation completed successfully.")
                 return data_validation_artifact
     
              except Exception as e:
-                raise NetworkSecurityException(e, sys)
-             
+                raise NetworkSecurityException(e, sys)   

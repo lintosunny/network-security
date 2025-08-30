@@ -26,6 +26,7 @@ class DataIngestion:
         - Splitting data into train/test sets
         """
         try:
+            logging.info(f"{'>>'*20} Data Ingestion {'<<'*20}")
             self.data_ingestion_config = data_ingestion_config
             logging.info("DataIngestion initialized with config: %s", data_ingestion_config.__dict__)
         except Exception as e:
