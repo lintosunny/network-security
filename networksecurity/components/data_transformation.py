@@ -106,7 +106,7 @@ class DataTransformation:
 
             final_preprocessor_path = os.path.dirname(self.model_pusher_config.final_preprocessor_file_path)
             os.makedirs(final_preprocessor_path, exist_ok=True)
-            save_object(file_path=self.model_pusher_config.final_model_file_path, obj=preprocessor_object)
+            save_object(file_path=self.model_pusher_config.final_preprocessor_file_path, obj=preprocessor_object)
 
             # prepare artifact
             data_transformation_artifact = DataTransformationArtifact(
