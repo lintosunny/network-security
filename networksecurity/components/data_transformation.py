@@ -5,7 +5,10 @@ import pandas as pd
 from sklearn.impute import KNNImputer
 from sklearn.pipeline import Pipeline
 
-from networksecurity.entity.config_entity import DataTransformationConfig
+from networksecurity.entity.config_entity import (
+    DataTransformationConfig,
+    ModelPusherConfig
+)
 from networksecurity.entity.artifact_entity import (
     DataValidationArtifact,
     DataTransformationArtifact,
@@ -23,10 +26,12 @@ from networksecurity.utils.main_utils.utils import (
 
 class DataTransformation:
     def __init__(self, data_transformation_config: DataTransformationConfig,
-                 data_validation_artifact: DataValidationArtifact):
+                model_pusher_config: ModelPusherConfig,
+                data_validation_artifact: DataValidationArtifact):
         try:
             logging.info(f"{'>>'*20} Data Transformation {'<<'*20}")
             self.data_transformation_config = data_transformation_config
+            self.model_pusher_config = model_pusher_config
             self.data_validation_artifact = data_validation_artifact
         except Exception as e:
             raise NetworkSecurityException(e, sys)
@@ -98,6 +103,10 @@ class DataTransformation:
             # save preprocessing object
             save_object(self.data_transformation_config.transformed_object_file_path, obj=preprocessor_object)
             logging.info("Preprocessing object saved at: %s", self.data_transformation_config.transformed_object_file_path)
+
+            final_preprocessor_path = os.path.dirname(self.model_pusher_config.final_preprocessor_file_path)
+            os.makedirs(final_preprocessor_path, exist_ok=True)
+            save_object(file_path=self.model_pusher_config.final_model_file_path, obj=preprocessor_object)
 
             # prepare artifact
             data_transformation_artifact = DataTransformationArtifact(

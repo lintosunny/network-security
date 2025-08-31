@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "certifi>=2025.8.3",
+    "dagshub>=0.6.3",
     "dill>=0.4.0",
+    "mlflow>=3.3.2",
     "numpy>=2.2.6",
     "pandas>=2.3.2",
     "pyaml>=25.7.0",

@@ -1,32 +1,70 @@
 import os
 import sys
+import joblib
+import dagshub
+import mlflow
+from dotenv import load_dotenv
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
-
+from sklearn.ensemble import (
+    RandomForestClassifier, 
+    GradientBoostingClassifier, 
+    AdaBoostClassifier
+)
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
-from networksecurity.entity.artifact_entity import DataTransformationArtifact, ModelTrainerArtifact
-from networksecurity.entity.config_entity import ModelTrainerConfig
+from networksecurity.entity.artifact_entity import (
+    DataTransformationArtifact, 
+    ModelTrainerArtifact
+)
+from networksecurity.entity.config_entity import (
+    ModelTrainerConfig,
+    ModelPusherConfig
+)
 from networksecurity.utils.main_utils.utils import (
-load_numpy_array_data,
-save_object,
-load_object,
-evaluate_models,
+    load_numpy_array_data,
+    save_object,
+    load_object,
+    evaluate_models
 )
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
 from networksecurity.utils.ml_utils.metric.classification_metric import get_classification_score
 
+load_dotenv(override=True)
+
 class ModelTrainer:
     def __init__(self, model_trainer_config: ModelTrainerConfig,
+                 model_pusher_config: ModelPusherConfig,
                  data_transformation_artifact: DataTransformationArtifact):
         try:
             logging.info(f"{'>>'*20} Model Trainer {'<<'*20}")
             self.model_trainer_config = model_trainer_config
+            self.model_pusher_config = model_pusher_config
             self.data_transformation_artifact = data_transformation_artifact
         except Exception as e:  
             raise NetworkSecurityException(e, sys)
         
+    def track_mlflow(self, best_model, classfication_metric):
+        mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+        mlflow.set_experiment("Network_Security")
+        
+        with mlflow.start_run():
+            f1_score = classfication_metric.f1_score
+            precision_score = classfication_metric.precision_score
+            recall_score = classfication_metric.recall_score
+
+            mlflow.log_metric("f1_score", f1_score)
+            mlflow.log_metric("precision_score", precision_score)
+            mlflow.log_metric("recall_score", recall_score)
+            logging.info("✅ Metrics saved successfully")
+
+            joblib.dump(best_model, "model.joblib")
+            mlflow.log_artifact("model.joblib", artifact_path="model")
+            logging.info("✅ Model saved as artifact successfully")
+
+            # Cleanup local files
+            os.remove("model.joblib")
+
     def train_model(self, X_train, y_train, X_test, y_test):
         try:
             logging.info("Defining candidate models...")
@@ -68,6 +106,7 @@ class ModelTrainer:
                     'n_estimators': [8,16,32,64,128,256]
                 }
             }
+
             # Evaluate models
             logging.info("Evaluating models with cross-validation...")
             model_report: dict = evaluate_models(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, models=models, params=params) 
@@ -84,10 +123,16 @@ class ModelTrainer:
             classification_train_metric = get_classification_score(y_true=y_train, y_pred=y_train_pred)
             logging.info(f"Classification metric on training dataset: {classification_train_metric}")
 
+            # Track experiment with MLflow
+            self.track_mlflow(best_model, classification_train_metric)
+
             # Evaluate on testing set
             y_test_pred = best_model.predict(X_test)
             classification_test_metric = get_classification_score(y_true=y_test, y_pred=y_test_pred)
             logging.info(f"Classification metric on testing dataset: {classification_test_metric}")
+
+             # Track experiment with MLflow
+            self.track_mlflow(best_model, classification_test_metric)
             
             # Load preprocessing object
             preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
@@ -99,6 +144,10 @@ class ModelTrainer:
             Network_Model = NetworkModel(preprocessor=preprocessor, model=best_model)
             save_object(file_path=self.model_trainer_config.trained_model_file_path, obj=Network_Model)
             logging.info(f"Trained model saved at path: {self.model_trainer_config.trained_model_file_path}")
+
+            final_model_path = os.path.dirname(self.model_pusher_config.final_model_file_path)
+            os.makedirs(final_model_path, exist_ok=True)
+            save_object(file_path=self.model_pusher_config.final_model_file_path, obj=best_model)
 
             # Create and return artifact 
             model_trainer_artifact = ModelTrainerArtifact(

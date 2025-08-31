@@ -13,4 +13,5 @@ wheels/
 
 logs
 Artifacts
+mlruns
 .ipynb_checkpoints
